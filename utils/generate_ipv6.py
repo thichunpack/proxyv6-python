@@ -21,7 +21,7 @@ def is_admin():
         return False
 
 
-def generate_ipv6_addresses(count=1):
+def generate_ipv6_addresses(authorization, count=1):
     base_ipv6 = get_ethernet_ipv6_addresses()
     if not base_ipv6:
         return []  # Trả về rỗng nếu không lấy được IPv6 gốc
@@ -60,7 +60,7 @@ def get_ethernet_ipv6_addresses() -> str:
     return None
 
 
-async def add_ipv6_to_ethernet(ipv6_address, interface_name="Ethernet"):
+async def add_ipv6_to_ethernet(authorization, ipv6_address, interface_name="Ethernet"):
     if not is_admin():
         return "Bạn phải chạy script với quyền Administrator!"
 
@@ -89,7 +89,7 @@ async def add_ipv6_to_ethernet(ipv6_address, interface_name="Ethernet"):
         raise RuntimeError(f"Add IPv6 failed: {e.stderr or e.stdout}")
 
 
-async def remove_ipv6_address(ipv6_address, interface_name="Ethernet"):
+async def remove_ipv6_address(authorization, ipv6_address, interface_name="Ethernet"):
     if not is_admin():
         return "Bạn phải chạy script với quyền Administrator!"
     command = [
@@ -107,7 +107,7 @@ async def remove_ipv6_address(ipv6_address, interface_name="Ethernet"):
         # print(f"⚠️ Remove IPv6 failed: {e.stderr or e.stdout or str(e)}")
 
 
-def get_adapters_ipv4():
+def get_adapters_ipv4(authorization):
     # chạy ipconfig và lấy output
     result = subprocess.run(
         ["ipconfig"], capture_output=True, text=True, encoding="utf-8", errors="ignore"
@@ -142,7 +142,7 @@ def get_adapters_ipv4():
     return adapters
 
 
-def get_adapters_ipv6(debug: bool = False):
+def get_adapters_ipv6(authorization, debug: bool = False):
     result = subprocess.run(
         ["ipconfig"], capture_output=True, text=True, encoding="utf-8", errors="ignore"
     )
@@ -197,11 +197,13 @@ def get_adapters_ipv6(debug: bool = False):
         adapters.append(adapter_info)
 
     return adapters
-def get_ipv6_by_card_name(card_name: str):
+
+
+def get_ipv6_by_card_name(authorization, card_name: str):
     """
     Trả về tất cả IPv6 Address và Temporary IPv6 Address của card_name
     """
-    adapters = get_adapters_ipv6()
+    adapters = get_adapters_ipv6(authorization)
     for adapter in adapters:
         if adapter["card_name"].lower() == card_name.lower():
             return adapter

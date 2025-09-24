@@ -12,7 +12,7 @@ output_dir = os.path.abspath(os.path.join(script_dir, "..", "utils_ext"))
 os.makedirs(output_dir, exist_ok=True)
 
 # Danh sách các file cần build
-source_files = ["db.py", "generate_ipv6.py", "proxy.py"]
+source_files = ["db.py", "generate_ipv6.py", "proxy.py", "slm_save_data.py"]
 
 # Khởi tạo danh sách extensions
 extensions = []

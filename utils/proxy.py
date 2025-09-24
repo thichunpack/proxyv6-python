@@ -1,5 +1,4 @@
 import socket
-import sys
 import threading
 import traceback
 import subprocess
@@ -10,7 +9,7 @@ _running_proxies = {}
 lock = threading.Lock()
 
 
-def create_proxy(data):
+def create_proxy(authorization, data):
     """
     Khởi chạy 1 proxy đơn giản, bind IPv6/IPv4 theo data["ip"], port=data["port"]
     """
@@ -145,7 +144,7 @@ def start_multi_proxy(list_run_thread):
         t.start()
 
 
-def stop_proxy(port: int):
+def stop_proxy(authorization, port: int):
     """Dừng 1 proxy theo port"""
     with lock:
         if port in _running_proxies:
@@ -154,7 +153,7 @@ def stop_proxy(port: int):
     return False
 
 
-def list_running_proxies():
+def list_running_proxies(authorization):
     """Trả về danh sách proxy đang chạy"""
     with lock:
         return list(_running_proxies.keys())

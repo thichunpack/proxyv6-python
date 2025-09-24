@@ -2,9 +2,10 @@ import threading
 import sqlite3
 import uvicorn
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header, Body
 from pydantic import BaseModel
-from utils_ext.generate_ipv6 import (
+from typing import Optional, List, Dict
+from utils.generate_ipv6 import (
     generate_ipv6_addresses,
     add_ipv6_to_ethernet,
     remove_ipv6_address,
@@ -12,7 +13,7 @@ from utils_ext.generate_ipv6 import (
     get_ipv6_by_card_name,
 )
 from utils_ext.db import ipv6_address_path, init_ipv6_table
-from utils_ext.proxy import create_proxy, stop_proxy, list_running_proxies
+from utils.proxy import create_proxy, stop_proxy, list_running_proxies
 
 app = FastAPI()
 init_ipv6_table()
@@ -62,14 +63,16 @@ class ProxyCreate(BaseModel):
 
 
 @app.post("/proxy/create")
-async def create_proxy_v6(data: ProxyCreate):
+async def create_proxy_v6(
+    data: ProxyCreate, authorization: Optional[str] = Header(None)
+):
     port = get_next_port()
-    ipv6 = generate_ipv6_addresses(1)[0]
+    ipv6 = generate_ipv6_addresses(authorization, 1)[0]
     group = data.group_name
     interface = data.interface_name
 
     # add ipv6 vào card mạng
-    await add_ipv6_to_ethernet(ipv6, interface)
+    await add_ipv6_to_ethernet(authorization, ipv6, interface)
 
     conn = db_connect()
     cur = conn.cursor()
@@ -82,7 +85,12 @@ async def create_proxy_v6(data: ProxyCreate):
 
     # run proxy
     t = threading.Thread(
-        target=create_proxy, args=({"port": port, "ip": ipv6},), daemon=True
+        target=create_proxy,
+        args=(
+            authorization,
+            {"port": port, "ip": ipv6},
+        ),
+        daemon=True,
     )
     t.start()
 
@@ -90,28 +98,30 @@ async def create_proxy_v6(data: ProxyCreate):
 
 
 @app.post("/proxy/run_all")
-def run_all_proxy():
+def run_all_proxy(authorization: Optional[str] = Header(None)):
     proxies = get_all_proxies()
     started = []
     for row in proxies:
         id_, ipv6, group, port, interface = row
         port = int(port)
-        if port not in list_running_proxies():
+        if port not in list_running_proxies(authorization):
             t = threading.Thread(
-                target=create_proxy, args=({"port": port, "ip": ipv6},), daemon=True
+                target=create_proxy,
+                args=(
+                    authorization,
+                    {"port": port, "ip": ipv6},
+                ),
+                daemon=True,
             )
             t.start()
             started.append(port)
     return {"started": started}
 
 
-from typing import List, Dict
-from fastapi import Body
-import threading
-
-
 @app.post("/proxy/run_by_ids")
-def run_proxies_by_ids(ids: List[int] = Body(...)):
+def run_proxies_by_ids(
+    ids: List[int] = Body(...), authorization: Optional[str] = Header(None)
+):
     """
     Run proxies theo danh sách DB id.
     Body: [1, 2, 3]
@@ -139,7 +149,7 @@ def run_proxies_by_ids(ids: List[int] = Body(...)):
         if i not in found_ids:
             results.append({"id": i, "status": "not_found"})
 
-    running_ports = list_running_proxies()
+    running_ports = list_running_proxies(authorization)
 
     for id_, ipv6, group, port, interface in rows:
         port = int(port)
@@ -149,7 +159,10 @@ def run_proxies_by_ids(ids: List[int] = Body(...)):
             try:
                 t = threading.Thread(
                     target=create_proxy,
-                    args=({"port": port, "ip": ipv6},),
+                    args=(
+                        authorization,
+                        {"port": port, "ip": ipv6},
+                    ),
                     daemon=True,
                 )
                 t.start()
@@ -163,7 +176,9 @@ def run_proxies_by_ids(ids: List[int] = Body(...)):
 
 
 @app.post("/proxy/stop_by_ids")
-def stop_proxies_by_ids(ids: List[int] = Body(...)):
+def stop_proxies_by_ids(
+    ids: List[int] = Body(...), authorization: Optional[str] = Header(None)
+):
     """
     Stop proxies by a list of DB ids.
     Body: [1, 2, 3]
@@ -192,14 +207,14 @@ def stop_proxies_by_ids(ids: List[int] = Body(...)):
             results.append({"id": i, "status": "not_found"})
 
     # Try to stop proxies for found ids
-    running_ports = (
-        list_running_proxies()
+    running_ports = list_running_proxies(
+        authorization
     )  # get current running ports from proxy module
 
     for id_, port in id_to_port.items():
         try:
             if port in running_ports:
-                ok = stop_proxy(port)  # trả về True nếu đã đánh dấu stop
+                ok = stop_proxy(authorization, port)  # trả về True nếu đã đánh dấu stop
                 if ok:
                     results.append({"id": id_, "port": port, "status": "stopped"})
                 else:
@@ -217,7 +232,7 @@ def stop_proxies_by_ids(ids: List[int] = Body(...)):
 
 
 @app.delete("/proxy/{id}")
-async def remove_proxy(id: int):
+async def remove_proxy(id: int, authorization: Optional[str] = Header(None)):
     conn = db_connect()
     cur = conn.cursor()
     cur.execute(
@@ -230,11 +245,11 @@ async def remove_proxy(id: int):
     _, ipv6, port, interface = row
     port = int(port)
 
-    if port in list_running_proxies():
+    if port in list_running_proxies(authorization):
         raise HTTPException(400, "Proxy đang chạy, không thể xóa!")
 
     cur.execute("DELETE FROM ipv6_address WHERE id=?", (id,))
-    await remove_ipv6_address(ipv6, interface)
+    await remove_ipv6_address(authorization, ipv6, interface)
     conn.commit()
     conn.close()
 
@@ -242,14 +257,14 @@ async def remove_proxy(id: int):
 
 
 @app.post("/proxy/stop/{port}")
-def stop_proxy_api(port: int):
-    if not stop_proxy(port):
+def stop_proxy_api(port: int, authorization: Optional[str] = Header(None)):
+    if not stop_proxy(authorization, port):
         raise HTTPException(404, "Proxy not running")
     return {"stopped": port}
 
 
 @app.post("/proxy/rotate/{port}")
-async def rotate_proxy(port: int):
+async def rotate_proxy(port: int, authorization: Optional[str] = Header(None)):
     conn = db_connect()
     cur = conn.cursor()
     cur.execute(
@@ -263,13 +278,13 @@ async def rotate_proxy(port: int):
     id_, old_ipv6, group, port, interface = row
     port = int(port)
     # Dừng proxy củ
-    stop_proxy(port)
+    stop_proxy(authorization, port)
     # remove ipv6 cũ
-    await remove_ipv6_address(old_ipv6, interface)
+    await remove_ipv6_address(authorization, old_ipv6, interface)
 
     # tạo ipv6 mới
     new_ipv6 = generate_ipv6_addresses(1)[0]
-    await add_ipv6_to_ethernet(new_ipv6, interface)
+    await add_ipv6_to_ethernet(authorization, new_ipv6, interface)
 
     # update DB
     cur.execute("UPDATE ipv6_address SET ipv6=? WHERE id=?", (new_ipv6, id_))
@@ -277,9 +292,13 @@ async def rotate_proxy(port: int):
     conn.close()
 
     # stop cũ, start lại
-    stop_proxy(port)
     t = threading.Thread(
-        target=create_proxy, args=({"port": port, "ip": new_ipv6},), daemon=True
+        target=create_proxy,
+        args=(
+            authorization,
+            {"port": port, "ip": new_ipv6},
+        ),
+        daemon=True,
     )
     t.start()
 
@@ -287,9 +306,9 @@ async def rotate_proxy(port: int):
 
 
 @app.get("/proxy")
-def list_proxies():
+async def list_proxies(authorization: Optional[str] = Header(None)):
     rows = get_all_proxies()
-    running = list_running_proxies()
+    running = list_running_proxies(authorization)
     data = []
     for id_, ipv6, group, port, interface in rows:
         status = "running" if int(port) in running else "stopped"
@@ -307,23 +326,23 @@ def list_proxies():
 
 
 @app.get("/network/adapters")
-def list_network_adapters():
+async def list_network_adapters(authorization: Optional[str] = Header(None)):
     """
     Trả về danh sách card mạng và IPv4 address.
     """
     try:
-        adapters = get_adapters_ipv4()
+        adapters = get_adapters_ipv4(authorization)
         return {"count": len(adapters), "adapters": adapters}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting adapters: {e}")
 
 
 @app.get("/network/adapters/{card_name}/ipv6")
-def get_ipv6_for_card(card_name: str):
+def get_ipv6_for_card(card_name: str, authorization: Optional[str] = Header(None)):
     """
     Trả về IPv6 của 1 card mạng cụ thể theo card_name
     """
-    adapter = get_ipv6_by_card_name(card_name)
+    adapter = get_ipv6_by_card_name(authorization, card_name)
     if not adapter:
         raise HTTPException(
             status_code=404,
@@ -333,22 +352,25 @@ def get_ipv6_for_card(card_name: str):
 
 
 @app.delete("/network/adapters/{card_name}/ipv6/{ipv6_address}")
-async def get_ipv6_for_card(card_name: str, ipv6_address: str):
+async def get_ipv6_for_card(
+    card_name: str, ipv6_address: str, authorization: Optional[str] = Header(None)
+):
     """
     Trả về IPv6 của 1 card mạng cụ thể theo card_name
     """
     try:
-        adapter = get_ipv6_by_card_name(card_name)
+        adapter = get_ipv6_by_card_name(authorization, card_name)
         if not adapter:
             raise HTTPException(
                 status_code=404,
                 detail=f"Adapter '{card_name}' not found or no IPv6 assigned",
             )
-        await remove_ipv6_address(ipv6_address, card_name)
+        await remove_ipv6_address(authorization, ipv6_address, card_name)
 
         return {"removed": ipv6_address, "from": card_name}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error removing IPv6: {e}")
+
 
 def _main():
     uvicorn.run(
