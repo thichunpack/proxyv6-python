@@ -1,17 +1,18 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
 import threading
 import sqlite3
+import uvicorn
 
-from utils.generate_ipv6 import (
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from utils_ext.generate_ipv6 import (
     generate_ipv6_addresses,
     add_ipv6_to_ethernet,
     remove_ipv6_address,
     get_adapters_ipv4,
     get_ipv6_by_card_name,
 )
-from utils.db import ipv6_address_path, init_ipv6_table
-from utils.proxy import create_proxy, stop_proxy, list_running_proxies
+from utils_ext.db import ipv6_address_path, init_ipv6_table
+from utils_ext.proxy import create_proxy, stop_proxy, list_running_proxies
 
 app = FastAPI()
 init_ipv6_table()
@@ -348,3 +349,17 @@ async def get_ipv6_for_card(card_name: str, ipv6_address: str):
         return {"removed": ipv6_address, "from": card_name}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error removing IPv6: {e}")
+
+def _main():
+    uvicorn.run(
+        app,
+        host="127.0.0.1",  # chỉ localhost -> không popup firewall & chỉ NestJS local gọi được
+        port=9002,
+        reload=False,
+        log_level="info",
+        access_log=False,
+    )
+
+
+if __name__ == "__main__":
+    _main()

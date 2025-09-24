@@ -39,10 +39,10 @@ project/
 ## 🚀 Chạy server
 
 ```bash
-uvicorn server:app --reload --host 0.0.0.0 --port 8000
+uvicorn server:app --reload --host 0.0.0.0 --port 9002
 ```
 
-API sẽ sẵn sàng tại: [http://localhost:8000](http://localhost:8000)
+API sẽ sẵn sàng tại: [http://localhost:9002](http://localhost:9002)
 
 ---
 
@@ -71,7 +71,7 @@ API sẽ sẵn sàng tại: [http://localhost:8000](http://localhost:8000)
 ### Tạo proxy mới
 
 ```bash
-curl --location 'http://localhost:8000/proxy/create' \
+curl --location 'http://localhost:9002/proxy/create' \
 --header 'Content-Type: application/json' \
 --data '{
   "group_name": "group1",
@@ -82,67 +82,67 @@ curl --location 'http://localhost:8000/proxy/create' \
 ### Xem danh sách proxy
 
 ```bash
-curl -X GET "http://localhost:8000/proxy"
+curl -X GET "http://localhost:9002/proxy"
 ```
 
 ### Chạy tất cả
 
 ```bash
-curl --location --request POST 'http://localhost:8000/proxy/run_all'
+curl --location --request POST 'http://localhost:9002/proxy/run_all'
 ```
 
 ### lấy danh sách
 
 ```bash
-curl --location 'http://localhost:8000/proxy'
+curl --location 'http://localhost:9002/proxy'
 ```
 
 ### Dừng bằng port
 
 ```bash
-curl --location --request POST 'http://localhost:8000/proxy/stop/10000'
+curl --location --request POST 'http://localhost:9002/proxy/stop/10000'
 ```
 
 ### Xoay ipv6 bằng port
 
 ```bash
-curl --location --request POST 'http://localhost:8000/proxy/rotate/10005'
+curl --location --request POST 'http://localhost:9002/proxy/rotate/10005'
 ```
 
 ### Xóa proxy
 
 ```bash
-curl --location --request DELETE 'http://localhost:8000/proxy/4'
+curl --location --request DELETE 'http://localhost:9002/proxy/4'
 ```
 
 ### chạy bằng ids
 
 ```bash
-http://localhost:8000/proxy/run_by_ids
+http://localhost:9002/proxy/run_by_ids
 ```
 
 ### Dừng bằng ids
 
 ```bash
-http://localhost:8000/proxy/stop_by_ids
+http://localhost:9002/proxy/stop_by_ids
 ```
 
 ### Danh sách card mạng:
 
 ```bash
-http://localhost:8000/network/adapters
+http://localhost:9002/network/adapters
 ```
 
 ### Danh sách ipv6 có trong máy
 
 ```bash
-curl --location 'http://localhost:8000/network/adapters/Ethernet/ipv6'
+curl --location 'http://localhost:9002/network/adapters/Ethernet/ipv6'
 ```
 
 ## Xóa trực tiếp ipv6 trong máy
 
 ```bash
-curl --location --request DELETE 'http://localhost:8000/network/adapters/Ethernet/ipv6/2402:800:6344:86b:57d6:4ead:8312:9703'
+curl --location --request DELETE 'http://localhost:9002/network/adapters/Ethernet/ipv6/2402:800:6344:86b:57d6:4ead:8312:9703'
 ```
 
 ---
@@ -152,3 +152,15 @@ curl --location --request DELETE 'http://localhost:8000/network/adapters/Etherne
 - Cần chạy bằng **Administrator** để thêm hoặc xoá IPv6 vào interface.
 - Nếu máy không có kết nối IPv6 public, proxy sẽ không hoạt động.
 - Database SQLite lưu trong thư mục `data/ipv6_address.db`.
+
+### Build:
+
+```bash
+python setup.py build_ext
+```
+
+### Build exe
+
+```bash
+pyinstaller --onefile --name server2 --icon=solumate_icon.ico --add-data "utils_ext;utils_ext" .\server.py
+```
