@@ -45,6 +45,92 @@
       backdrop-filter: blur(10px);
       animation: rise .5s ease both;
     }
+    .donation {
+      position: relative;
+      overflow: hidden;
+      background:
+        linear-gradient(130deg, #102334e0 0%, #0f1a29d8 48%, #102727d8 100%);
+    }
+    .donation::after {
+      content: "";
+      position: absolute;
+      top: -190px;
+      right: -120px;
+      width: 380px;
+      height: 380px;
+      border-radius: 999px;
+      background: radial-gradient(circle, #2fbc8e45 0%, transparent 68%);
+      pointer-events: none;
+    }
+    .donation-top {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 12px;
+    }
+    .donation-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 7px;
+      font-size: .75rem;
+      font-weight: 800;
+      color: #a8cae8;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .donation-kicker::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--ok);
+      box-shadow: 0 0 0 6px #44cf8240;
+    }
+    .donation h2 {
+      margin: 0 0 6px;
+      font: 700 1.1rem "Space Grotesk", sans-serif;
+    }
+    .donation-desc { margin: 0; max-width: 760px; }
+    .donation-list {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .donation-card {
+      border: 1px solid #2f435d;
+      border-radius: 13px;
+      background: #0c1725d1;
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+      align-content: start;
+    }
+    .donation-label {
+      font-size: .8rem;
+      font-weight: 800;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      color: #9eb8d9;
+    }
+    .donation-value {
+      font: 700 1.02rem "Space Grotesk", sans-serif;
+      color: #d9ebff;
+    }
+    .donation-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 2px;
+    }
+    .donation-note { font-size: .82rem; color: #90aac8; }
+    .donation-copy { min-width: 90px; }
     .top1 {
       display: flex;
       align-items: center;
@@ -254,17 +340,61 @@
     @keyframes slide { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0);} }
     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     @keyframes breathe { 0%,100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(67,207,130,.4);} 50% { transform: scale(1.08); box-shadow: 0 0 0 6px rgba(67,207,130,0);} }
-    @media (max-width: 1080px) { .grid4 { grid-template-columns: 1fr 1fr; } .main { grid-template-columns: 1fr; } }
+    @media (max-width: 1080px) {
+      .grid4 { grid-template-columns: 1fr 1fr; }
+      .main { grid-template-columns: 1fr; }
+      .donation-list { grid-template-columns: 1fr; }
+    }
     @media (max-width: 700px) {
       body { padding: 12px; }
       .grid4, .stats, .toolbar, .tools, .inlines { grid-template-columns: 1fr; display: grid; }
       .inlines input, button { width: 100%; }
       .top-right { width: 100%; justify-content: space-between; }
+      .donation-top { margin-bottom: 10px; }
+      .donation-meta { flex-direction: column; align-items: stretch; }
+      .donation-copy { width: 100%; }
     }
   </style>
 </head>
 <body>
   <div class="shell">
+    <section class="donation panel" id="donationBox">
+      <div class="donation-top">
+        <div>
+          <div class="donation-kicker" data-i18n="donation.kicker">Donation</div>
+          <h2 data-i18n="donation.title">Ung ho de duy tri du an</h2>
+          <p class="muted donation-desc" data-i18n="donation.desc">
+            Neu du an huu ich, ban co the ung ho de duy tri va phat trien them tinh nang.
+          </p>
+        </div>
+      </div>
+      <div class="donation-list">
+        <article class="donation-card">
+          <span class="donation-label" data-i18n="donation.momo">MoMo</span>
+          <div class="donation-value mono">0799640848</div>
+          <div class="donation-meta">
+            <span class="donation-note" data-i18n="donation.quickCopy">Sao chep nhanh</span>
+            <button class="g tiny donation-copy" data-copy="0799640848" data-copy-label="donation.momo" data-i18n="btn.copy">
+              Copy
+            </button>
+          </div>
+        </article>
+        <article class="donation-card">
+          <span class="donation-label" data-i18n="donation.bank">VietinBank</span>
+          <div class="donation-value mono">0799640848</div>
+          <div class="donation-note">
+            <span data-i18n="donation.owner">Chu tai khoan</span>: <strong data-i18n="donation.ownerName">Doan Thanh Luc</strong>
+          </div>
+          <div class="donation-meta">
+            <span class="donation-note" data-i18n="donation.quickCopy">Sao chep nhanh</span>
+            <button class="g tiny donation-copy" data-copy="0799640848" data-copy-label="donation.bank" data-i18n="btn.copy">
+              Copy
+            </button>
+          </div>
+        </article>
+      </div>
+    </section>
+
     <section class="topbar">
       <div class="top1">
         <div class="brand">

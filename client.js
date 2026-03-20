@@ -55,11 +55,20 @@ const refs = {
   stopC: $("stopC"),
   logBox: $("logBox"),
   toastBox: $("toastBox"),
+  donationBox: $("donationBox"),
 };
 
 const I18N = {
   vi: {
     "brand.title": "Proxy IPv6 Control Center",
+    "donation.kicker": "Ung ho du an",
+    "donation.title": "Donation cho tac gia",
+    "donation.desc": "Neu du an huu ich, ban co the ung ho de duy tri va phat trien them tinh nang.",
+    "donation.momo": "MoMo",
+    "donation.bank": "VietinBank",
+    "donation.owner": "Chu tai khoan",
+    "donation.ownerName": "Doan Thanh Luc",
+    "donation.quickCopy": "Sao chep nhanh",
     "status.connected": "Da ket noi realtime",
     "status.disconnected": "Mat ket noi",
     "label.apiBase": "API Base URL",
@@ -98,6 +107,7 @@ const I18N = {
     "btn.rotate": "Xoay",
     "btn.delete": "Xoa",
     "btn.remove": "Xoa",
+    "btn.copy": "Copy",
     "loading.creating": "Dang tao...",
     "loading.running": "Dang chay...",
     "loading.stopping": "Dang dung...",
@@ -118,6 +128,8 @@ const I18N = {
     "status.running": "dang chay",
     "status.stopped": "da dung",
     "msg.configSaved": "Da luu cau hinh",
+    "msg.copyDone": "Da sao chep {label}",
+    "msg.copyFail": "Khong the sao chep. Vui long copy thu cong",
     "msg.socketConnected": "Socket realtime da ket noi",
     "msg.socketDisconnected": "Socket realtime da ngat ket noi",
     "msg.socketError": "Socket loi",
@@ -183,6 +195,14 @@ const I18N = {
   },
   en: {
     "brand.title": "Proxy IPv6 Control Center",
+    "donation.kicker": "Support project",
+    "donation.title": "Donation for the author",
+    "donation.desc": "If this project helps you, consider supporting maintenance and future features.",
+    "donation.momo": "MoMo",
+    "donation.bank": "VietinBank",
+    "donation.owner": "Account name",
+    "donation.ownerName": "Doan Thanh Luc",
+    "donation.quickCopy": "Quick copy",
     "status.connected": "Realtime connected",
     "status.disconnected": "Disconnected",
     "label.apiBase": "API Base URL",
@@ -221,6 +241,7 @@ const I18N = {
     "btn.rotate": "Rotate",
     "btn.delete": "Delete",
     "btn.remove": "Remove",
+    "btn.copy": "Copy",
     "loading.creating": "Creating...",
     "loading.running": "Running...",
     "loading.stopping": "Stopping...",
@@ -241,6 +262,8 @@ const I18N = {
     "status.running": "running",
     "status.stopped": "stopped",
     "msg.configSaved": "Config saved",
+    "msg.copyDone": "Copied {label}",
+    "msg.copyFail": "Cannot copy automatically. Please copy manually",
     "msg.socketConnected": "Realtime socket connected",
     "msg.socketDisconnected": "Realtime socket disconnected",
     "msg.socketError": "Socket error",
@@ -388,6 +411,36 @@ function saveCfg() {
   localStorage.setItem("proxy_ui_lang", state.lang);
   toast(t("msg.configSaved"), "ok");
   connectSocket(true);
+}
+
+async function copyText(text) {
+  if (!text) {
+    throw new Error("empty");
+  }
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.setAttribute("readonly", "");
+  ta.style.position = "fixed";
+  ta.style.top = "-9999px";
+  ta.style.opacity = "0";
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  let ok = false;
+  try {
+    ok = document.execCommand("copy");
+  } catch (e) {
+    ok = false;
+  } finally {
+    ta.remove();
+  }
+  if (!ok) {
+    throw new Error("copy_failed");
+  }
 }
 
 const base = () => refs.baseUrl.value.trim().replace(/\/+$/, "");
@@ -1194,6 +1247,26 @@ function bindEvents() {
     state.ipv6Items = [];
     renderIpv6();
   });
+
+  if (refs.donationBox) {
+    refs.donationBox.addEventListener("click", async (ev) => {
+      const btn = ev.target.closest(".donation-copy");
+      if (!btn) {
+        return;
+      }
+      const value = (btn.getAttribute("data-copy") || "").trim();
+      const labelKey = btn.getAttribute("data-copy-label") || "donation.kicker";
+      if (!value) {
+        return;
+      }
+      try {
+        await copyText(value);
+        toast(t("msg.copyDone", { label: t(labelKey) }), "ok");
+      } catch (e) {
+        toast(t("msg.copyFail"), "warn");
+      }
+    });
+  }
 
   refs.createForm.addEventListener("submit", createProxy);
 
