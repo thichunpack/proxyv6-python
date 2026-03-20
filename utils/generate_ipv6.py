@@ -1,14 +1,15 @@
-import random
-import time
-import httpx
+import base64
 import asyncio
-import subprocess
-import re
 import ctypes
+import random
+import re
+import subprocess
+import time
+
+import httpx
 
 _CACHE_DURATION = 100
 
-# Khai báo biến cache toàn cục trước
 _cached_ip = None
 _cached_time = 0
 
@@ -17,14 +18,69 @@ def is_admin():
     """Check if the script is running with administrator privileges."""
     try:
         return ctypes.windll.shell32.IsUserAnAdmin()
-    except:
+    except Exception:
         return False
 
 
-def generate_ipv6_addresses(authorization, count=1):
+def _ps_escape(value: str) -> str:
+    return str(value).replace("'", "''")
+
+
+def _run_powershell(command: str):
+    result = subprocess.run(
+        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
+        text=True,
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        output = (result.stderr or result.stdout or "Unknown error").strip()
+        raise RuntimeError(output)
+
+
+def _run_powershell_with_uac(command: str):
+    encoded = base64.b64encode(command.encode("utf-16le")).decode("ascii")
+    launcher_script = (
+        f"$arg='-NoProfile -ExecutionPolicy Bypass -EncodedCommand {encoded}'; "
+        "$p = Start-Process -FilePath 'powershell' -Verb RunAs -ArgumentList $arg -Wait -PassThru; "
+        "exit $p.ExitCode"
+    )
+    result = subprocess.run(
+        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", launcher_script],
+        text=True,
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        output = (result.stderr or result.stdout or "Unknown error").strip()
+        lowered = output.lower()
+        if "canceled" in lowered or "cancelled" in lowered or "1223" in lowered:
+            raise PermissionError("Administrator permission was canceled by user.")
+        raise RuntimeError(output)
+
+
+def _run_with_optional_uac(command: str):
+    if is_admin():
+        _run_powershell(command)
+    else:
+        _run_powershell_with_uac(command)
+
+
+async def ensure_admin_permission():
+    if is_admin():
+        return
+
+    command = "Write-Output 'admin-check' | Out-Null"
+    try:
+        await asyncio.to_thread(_run_powershell_with_uac, command)
+    except PermissionError:
+        raise RuntimeError("UAC was canceled. Please allow Administrator permission.")
+    except RuntimeError as exc:
+        raise RuntimeError(f"Administrator check failed: {exc}")
+
+
+def generate_ipv6_addresses(count=1):
     base_ipv6 = get_ethernet_ipv6_addresses()
     if not base_ipv6:
-        return []  # Trả về rỗng nếu không lấy được IPv6 gốc
+        return []
 
     components = base_ipv6.split(":")
     generated = []
@@ -42,7 +98,7 @@ def get_ethernet_ipv6_addresses() -> str:
 
     now = time.time()
     if _cached_ip and (now - _cached_time) < _CACHE_DURATION:
-        return _cached_ip  # ✅ Trả từ cache nếu còn hiệu lực
+        return _cached_ip
 
     try:
         with httpx.Client(timeout=5) as client:
@@ -50,65 +106,53 @@ def get_ethernet_ipv6_addresses() -> str:
             response.raise_for_status()
             ip = response.json().get("ip")
             if ip:
-                _cached_ip = ip  # ✅ Cache IP
+                _cached_ip = ip
                 _cached_time = time.time()
                 return ip
-    except Exception as e:
+    except Exception:
         pass
-        # print(f"[❌] Lỗi khi lấy IP public v6: {e}")
 
     return None
 
 
-async def add_ipv6_to_ethernet(authorization, ipv6_address, interface_name="Ethernet"):
-    if not is_admin():
-        return "Bạn phải chạy script với quyền Administrator!"
+async def add_ipv6_to_ethernet(ipv6_address, interface_name="Ethernet"):
+    interface = _ps_escape(interface_name)
+    ipv6 = _ps_escape(ipv6_address)
 
-    # Add IPv6 address
-    add_ip_cmd = [
-        "powershell",
-        "-Command",
-        f"New-NetIPAddress -InterfaceAlias '{interface_name}' -IPAddress {ipv6_address} -AddressFamily IPv6",
-    ]
-
-    # Set IPv6 DNS server (Google DNS)
-    set_dns_cmd = [
-        "powershell",
-        "-Command",
-        f"Set-DnsClientServerAddress -InterfaceAlias '{interface_name}' -ServerAddresses @('2001:4860:4860::8888','2001:4860:4860::8844')",
-    ]
+    command = (
+        f"New-NetIPAddress -InterfaceAlias '{interface}' -IPAddress '{ipv6}' -AddressFamily IPv6 -ErrorAction Stop; "
+        f"Set-DnsClientServerAddress -InterfaceAlias '{interface}' -ServerAddresses @('2001:4860:4860::8888','2001:4860:4860::8844') -ErrorAction Stop"
+    )
 
     try:
-        await asyncio.to_thread(
-            subprocess.run, add_ip_cmd, check=True, text=True, capture_output=True
-        )
-        await asyncio.to_thread(
-            subprocess.run, set_dns_cmd, check=True, text=True, capture_output=True
-        )
-    except subprocess.CalledProcessError as e:
-        raise RuntimeError(f"Add IPv6 failed: {e.stderr or e.stdout}")
+        await asyncio.to_thread(_run_with_optional_uac, command)
+    except PermissionError:
+        raise RuntimeError("UAC was canceled. Please allow Administrator permission.")
+    except RuntimeError as exc:
+        raise RuntimeError(f"Add IPv6 failed: {exc}")
 
 
-async def remove_ipv6_address(authorization, ipv6_address, interface_name="Ethernet"):
-    if not is_admin():
-        return "Bạn phải chạy script với quyền Administrator!"
-    command = [
-        "powershell",
-        "-Command",
-        f"Remove-NetIPAddress -InterfaceAlias '{interface_name}' -IPAddress {ipv6_address} -AddressFamily IPv6 -Confirm:$false",
-    ]
+async def remove_ipv6_address(ipv6_address, interface_name="Ethernet"):
+    interface = _ps_escape(interface_name)
+    ipv6 = _ps_escape(ipv6_address)
+
+    command = (
+        f"Remove-NetIPAddress -InterfaceAlias '{interface}' -IPAddress '{ipv6}' "
+        "-AddressFamily IPv6 -Confirm:$false -ErrorAction Stop"
+    )
 
     try:
-        await asyncio.to_thread(
-            subprocess.run, command, check=True, text=True, capture_output=True
-        )
-    except subprocess.CalledProcessError as e:
-        pass
-        # print(f"⚠️ Remove IPv6 failed: {e.stderr or e.stdout or str(e)}")
+        await asyncio.to_thread(_run_with_optional_uac, command)
+    except PermissionError:
+        raise RuntimeError("UAC was canceled. Please allow Administrator permission.")
+    except RuntimeError as exc:
+        lowered = str(exc).lower()
+        if "no matching msft_netipaddress" in lowered:
+            return
+        raise RuntimeError(f"Remove IPv6 failed: {exc}")
 
 
-def get_adapters_ipv4(authorization):
-    # chạy ipconfig và lấy output
+def get_adapters_ipv4():
     result = subprocess.run(
         ["ipconfig"], capture_output=True, text=True, encoding="utf-8", errors="ignore"
     )
@@ -119,30 +163,25 @@ def get_adapters_ipv4(authorization):
     adapter_info = {}
 
     for line in lines:
-        # Nhận diện adapter mới (dạng: "Ethernet adapter Ethernet:" hoặc "Wireless LAN adapter Wi-Fi:")
         adapter_match = re.match(r"^\s*([^\r\n:]+ adapter .+):", line)
         if adapter_match:
-            # lưu lại adapter cũ (nếu có IPv4)
             if current_adapter and "ipv4" in adapter_info:
                 adapters.append(adapter_info)
 
-            # tạo adapter mới
             current_adapter = adapter_match.group(1).split("adapter ")[-1].strip()
             adapter_info = {"card_name": current_adapter}
 
-        # Kiểm tra IPv4
         ipv4_match = re.search(r"IPv4 Address[\s.]*: ([^\s]+)", line)
         if ipv4_match:
             adapter_info["ipv4"] = ipv4_match.group(1)
 
-    # check adapter cuối cùng
     if current_adapter and "ipv4" in adapter_info:
         adapters.append(adapter_info)
 
     return adapters
 
 
-def get_adapters_ipv6(authorization, debug: bool = False):
+def get_adapters_ipv6(debug: bool = False):
     result = subprocess.run(
         ["ipconfig"], capture_output=True, text=True, encoding="utf-8", errors="ignore"
     )
@@ -157,7 +196,6 @@ def get_adapters_ipv6(authorization, debug: bool = False):
         if debug:
             print(f"[LINE] {line}")
 
-        # Nhận diện adapter mới
         adapter_match = re.match(r"^\s*([^\r\n:]+ adapter .+):", line)
         if adapter_match:
             if current_adapter and ipv6_list:
@@ -176,13 +214,12 @@ def get_adapters_ipv6(authorization, debug: bool = False):
                 continue
 
             if "IPv6 Address" in line or "Temporary IPv6 Address" in line:
-                # chỉ tách 1 lần đầu tiên
                 parts = line.split(":", 1)
                 if debug:
                     print(f"--> Split parts (limit=1): {parts}")
                 if len(parts) == 2:
                     addr = parts[1].strip()
-                    addr = addr.split("%")[0]  # bỏ %index
+                    addr = addr.split("%")[0]
                     addr_type = (
                         "Temporary IPv6 Address"
                         if "Temporary" in line
@@ -199,11 +236,9 @@ def get_adapters_ipv6(authorization, debug: bool = False):
     return adapters
 
 
-def get_ipv6_by_card_name(authorization, card_name: str):
-    """
-    Trả về tất cả IPv6 Address và Temporary IPv6 Address của card_name
-    """
-    adapters = get_adapters_ipv6(authorization)
+def get_ipv6_by_card_name(card_name: str):
+    """Return all IPv6 Address and Temporary IPv6 Address by card name."""
+    adapters = get_adapters_ipv6()
     for adapter in adapters:
         if adapter["card_name"].lower() == card_name.lower():
             return adapter

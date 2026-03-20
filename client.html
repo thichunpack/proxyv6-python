@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Proxy IPv6 Control Center</title>
+  <link rel="icon" href="/logo" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #06090f;
+      --panel: #0f1621cc;
+      --line: #243246;
+      --text: #e6f0ff;
+      --muted: #90a4c2;
+      --accent: #29b889;
+      --accent-2: #1a8d73;
+      --danger: #ff6b6b;
+      --warn: #e8b949;
+      --ok: #43cf82;
+      --shadow: 0 20px 44px rgba(0, 0, 0, 0.42);
+      --radius: 18px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: "Manrope", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(1200px 700px at -10% -10%, #11454f55 0%, transparent 62%),
+        radial-gradient(900px 600px at 110% 0%, #31213f66 0%, transparent 58%),
+        linear-gradient(145deg, #06090f 0%, #0a0f17 45%, #111825 100%);
+      padding: 20px;
+    }
+    .shell { max-width: 1280px; margin: 0 auto; display: grid; gap: 16px; }
+    .topbar, .panel {
+      background: var(--panel);
+      border: 1px solid #ffffff0f;
+      box-shadow: var(--shadow);
+      border-radius: var(--radius);
+      padding: 16px;
+      backdrop-filter: blur(10px);
+      animation: rise .5s ease both;
+    }
+    .top1 {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font: 700 1.1rem "Space Grotesk", sans-serif;
+      letter-spacing: .01em;
+    }
+    .brand-logo {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      object-fit: cover;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, .35);
+      border: 1px solid #ffffff1a;
+    }
+    .top-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .lang {
+      height: 34px;
+      border: 1px solid #2b3d54;
+      border-radius: 10px;
+      background: #111f31;
+      color: #dbe8ff;
+      padding: 0 10px;
+      font-weight: 700;
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid #2b3f58;
+      border-radius: 999px;
+      padding: 7px 11px;
+      background: #102031;
+      font-size: .88rem;
+      font-weight: 700;
+      color: #cce0ff;
+    }
+    .dot { width: 10px; height: 10px; border-radius: 999px; background: #5a6f8d; }
+    .dot.ok { background: var(--ok); animation: breathe 1.6s ease-in-out infinite; }
+    .grid4 { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: end; }
+    .field { display: grid; gap: 6px; }
+    .field span {
+      font-size: .78rem;
+      color: var(--muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    input, select, button { font: inherit; }
+    input, select {
+      height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #0d1928;
+      color: #e5f1ff;
+      padding: 0 12px;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: #2a916f;
+      box-shadow: 0 0 0 3px #1f71564d;
+    }
+    button {
+      height: 42px;
+      border: none;
+      border-radius: 12px;
+      padding: 0 14px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: .12s;
+    }
+    button:hover { transform: translateY(-1px); }
+    button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+    button.is-loading {
+      pointer-events: none;
+      position: relative;
+    }
+    button.is-loading::before {
+      content: "";
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin-right: 7px;
+      border-radius: 999px;
+      border: 2px solid currentColor;
+      border-right-color: transparent;
+      animation: spin .7s linear infinite;
+      vertical-align: -2px;
+    }
+    .p {
+      background: linear-gradient(140deg, var(--accent), var(--accent-2));
+      color: #00180f;
+    }
+    .g {
+      background: #15253a;
+      color: #d3e6ff;
+      border: 1px solid #284059;
+    }
+    .d {
+      background: #3a1f2a;
+      color: #ffbdc6;
+      border: 1px solid #6f2f46;
+    }
+    .w {
+      background: #3b2e16;
+      color: #ffd783;
+      border: 1px solid #6b5322;
+    }
+    .main { display: grid; gap: 16px; grid-template-columns: 360px 1fr; }
+    .panel h2 { margin: 0 0 12px; font: 700 1.04rem "Space Grotesk", sans-serif; }
+    .muted { color: var(--muted); font-size: .9rem; }
+    .toolbar, .tools, .inlines { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .adapters, .ipv6s { display: grid; gap: 8px; max-height: 250px; overflow: auto; }
+    .adapter {
+      border: 1px solid #25354a;
+      border-radius: 12px;
+      background: #0f1a29;
+      padding: 10px;
+      cursor: pointer;
+    }
+    .adapter.active { border-color: #33a47d; background: #112c31; }
+    .aname { font-size: .92rem; font-weight: 800; margin-bottom: 3px; }
+    .ipv6 {
+      border: 1px solid #243448;
+      border-radius: 12px;
+      background: #0e1826;
+      padding: 9px 10px;
+      display: grid;
+      gap: 7px;
+    }
+    .ipv6top { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: .79rem; color: var(--muted); }
+    .mono { font-family: Consolas, "SFMono-Regular", monospace; font-size: .84rem; overflow-wrap: anywhere; }
+    .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+    .stat {
+      border: 1px solid #233247;
+      border-radius: 12px;
+      background: #0d1521;
+      padding: 10px;
+      min-height: 72px;
+      display: grid;
+      gap: 4px;
+      align-content: center;
+    }
+    .stat b { font: 700 1.25rem "Space Grotesk", sans-serif; }
+    .stat span { color: var(--muted); font-size: .81rem; text-transform: uppercase; letter-spacing: .04em; font-weight: 700; }
+    .inlines input { width: 140px; }
+    .table { border: 1px solid #223247; border-radius: 12px; overflow: auto; background: #0b121d; }
+    table { width: 100%; border-collapse: collapse; min-width: 760px; }
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #101c2c;
+      border-bottom: 1px solid #24354b;
+      color: #9bb3d4;
+      padding: 10px;
+      font-size: .79rem;
+      text-align: left;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    td { border-bottom: 1px solid #1d2a3d; padding: 9px 10px; font-size: .9rem; }
+    tr:hover { background: #101f31; }
+    tr.row-busy td { background: #1e1b10; }
+    .acts { display: flex; gap: 6px; flex-wrap: wrap; }
+    .tiny { height: 30px; border-radius: 9px; padding: 0 10px; font-size: .77rem; font-weight: 800; }
+    .badge { display: inline-flex; border-radius: 999px; padding: 4px 9px; font-size: .76rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+    .running { background: #103426; color: #8ce9b6; }
+    .stopped { background: #1b2636; color: #9fb2ca; }
+    .empty { border: 1px dashed #34465e; border-radius: 12px; padding: 12px; color: var(--muted); text-align: center; background: #0d1624; }
+    .logs {
+      margin-top: 12px;
+      border: 1px solid #203045;
+      border-radius: 12px;
+      background: #0c1420;
+      padding: 8px;
+      max-height: 180px;
+      overflow: auto;
+      display: grid;
+      gap: 7px;
+    }
+    .log { border-left: 3px solid #365172; background: #0f1b2c; border-radius: 7px; padding: 7px 9px; font-size: .82rem; }
+    .log.ok { border-color: #3ba56a; }
+    .log.warn { border-color: #a47b2f; }
+    .log.err { border-color: #c95353; }
+    .toastbox { position: fixed; right: 16px; bottom: 16px; display: grid; gap: 8px; width: min(320px, calc(100vw - 24px)); z-index: 50; }
+    .toast { border-radius: 12px; border: 1px solid #283c57; background: #0e1826; box-shadow: 0 14px 32px rgba(0, 0, 0, .32); padding: 10px 12px; font-size: .88rem; animation: slide .28s ease both; }
+    .toast.ok { border-color: #2f6f4f; background: #10251c; }
+    .toast.err { border-color: #71343c; background: #2a1116; }
+    .toast.warn { border-color: #665225; background: #211b0c; }
+    .form { display: grid; gap: 10px; }
+    .note { margin-top: 8px; font-size: .8rem; color: var(--muted); }
+    @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0);} }
+    @keyframes slide { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0);} }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes breathe { 0%,100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(67,207,130,.4);} 50% { transform: scale(1.08); box-shadow: 0 0 0 6px rgba(67,207,130,0);} }
+    @media (max-width: 1080px) { .grid4 { grid-template-columns: 1fr 1fr; } .main { grid-template-columns: 1fr; } }
+    @media (max-width: 700px) {
+      body { padding: 12px; }
+      .grid4, .stats, .toolbar, .tools, .inlines { grid-template-columns: 1fr; display: grid; }
+      .inlines input, button { width: 100%; }
+      .top-right { width: 100%; justify-content: space-between; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="topbar">
+      <div class="top1">
+        <div class="brand">
+          <img class="brand-logo" src="/logo" alt="logo" />
+          <span data-i18n="brand.title">Proxy IPv6 Control Center</span>
+        </div>
+        <div class="top-right">
+          <select id="langSelect" class="lang">
+            <option value="vi">Tieng Viet</option>
+            <option value="en">English</option>
+          </select>
+          <div class="status" id="statusPill"><span class="dot" id="statusDot"></span><span id="statusText" data-i18n="status.disconnected">Disconnected</span></div>
+        </div>
+      </div>
+      <div class="grid4">
+        <label class="field"><span data-i18n="label.apiBase">API Base URL</span><input id="baseUrl" type="text" placeholder="http://127.0.0.1:9002" /></label>
+        <button class="g" id="saveCfg" data-i18n="btn.save">Save Config</button>
+        <button class="p" id="checkBtn" data-i18n="btn.check">Check Connection</button>
+      </div>
+    </section>
+
+    <section class="main">
+      <div class="left">
+        <section class="panel">
+          <h2 data-i18n="section.adapters">Network Adapters</h2>
+          <div class="toolbar">
+            <button class="g" id="refreshAdapters" data-i18n="btn.refreshAdapters">Refresh adapters</button>
+            <button class="p" id="loadIpv6" data-i18n="btn.loadIpv6">Load IPv6</button>
+            <button class="g" id="clearIpv6" data-i18n="btn.clearView">Clear view</button>
+          </div>
+          <div class="adapters" id="adaptersBox"></div>
+          <div class="ipv6s" id="ipv6Box" style="margin-top:10px"></div>
+        </section>
+
+        <section class="panel">
+          <h2 data-i18n="section.create">Create Proxy</h2>
+          <form class="form" id="createForm">
+            <label class="field"><span data-i18n="label.groupName">Group name</span><input id="groupName" type="text" placeholder="group-main" required /></label>
+            <label class="field"><span data-i18n="label.interface">Interface</span><select id="ifaceSelect"></select></label>
+            <button class="p" type="submit" data-i18n="btn.create">Create proxy</button>
+          </form>
+          <div class="note" data-i18n="note.interfaceSync">Interface list syncs from adapters.</div>
+        </section>
+      </div>
+
+      <section class="panel">
+        <h2 data-i18n="section.fleet">Proxy Fleet</h2>
+        <div class="stats">
+          <div class="stat"><span data-i18n="stat.total">Total</span><b id="totalC">0</b></div>
+          <div class="stat"><span data-i18n="stat.running">Running</span><b id="runC">0</b></div>
+          <div class="stat"><span data-i18n="stat.stopped">Stopped</span><b id="stopC">0</b></div>
+        </div>
+
+        <div class="tools">
+          <button class="g" id="refreshProxies" data-i18n="btn.refreshList">Refresh list</button>
+          <button class="p" id="runAll" data-i18n="btn.runAll">Run all</button>
+          <button class="g" id="runSel" disabled data-i18n="btn.runSelected">Run selected IDs</button>
+          <button class="g" id="stopSel" disabled data-i18n="btn.stopSelected">Stop selected IDs</button>
+          <button class="d" id="delSel" disabled data-i18n="btn.deleteSelected">Delete selected</button>
+        </div>
+
+        <div class="inlines">
+          <input id="portInput" type="number" min="1" placeholder="Port" />
+          <button class="w" id="stopPort" data-i18n="btn.stopByPort">Stop by port</button>
+          <button class="p" id="rotatePort" data-i18n="btn.rotateByPort">Rotate by port</button>
+        </div>
+
+        <div class="table">
+          <table>
+            <thead>
+              <tr>
+                <th><input id="checkAll" type="checkbox" /></th>
+                <th data-i18n="table.id">ID</th>
+                <th data-i18n="table.port">Port</th>
+                <th data-i18n="table.ipv6">IPv6</th>
+                <th data-i18n="table.group">Group</th>
+                <th data-i18n="table.interface">Interface</th>
+                <th data-i18n="table.status">Status</th>
+                <th data-i18n="table.actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="proxyBody"></tbody>
+          </table>
+        </div>
+
+        <h2 style="margin-top:14px" data-i18n="section.activity">Activity Log</h2>
+        <div class="logs" id="logBox"></div>
+      </section>
+    </section>
+  </div>
+
+  <div class="toastbox" id="toastBox"></div>
+
+  <script src="/client.js"></script>
+</body>
+</html>
