@@ -1,7 +1,6 @@
 ﻿# Solumate Project
 
-🌐 Language / Ngôn ngữ:
-
+## Language / Ngôn ngữ
 - Tiếng Việt
 - English
 
@@ -11,93 +10,115 @@ This repository provides Vietnamese and English guides for beginners.
 Nếu bạn thấy dự án hữu ích và muốn ủng hộ tác giả duy trì/hoàn thiện dự án, bạn có thể donation theo thông tin dưới đây:
 
 - MoMo: 0799640848
-- VietinBank: 0799640848 — Đoàn Thanh Lực
+- VietinBank: 0799640848 - Đoàn Thanh Lực
 
-Xin cảm ơn bạn đã ủng hộ! 🙏
+Xin cảm ơn bạn đã ủng hộ.
 
 ## Donation
 If you find this project useful and would like to support continued development/maintenance:
 
 - MoMo: 0799640848
-- VietinBank: 0799640848 — Đoàn Thanh Lực
+- VietinBank: 0799640848 - Đoàn Thanh Lực
 
-Thank you for your support! 🙏
-
----
-# Proxy IPv6 Manager ðŸš€
-
-Má»™t REST API viáº¿t báº±ng **FastAPI** cho phÃ©p:
-
-- Táº¡o vÃ  quáº£n lÃ½ proxy dá»±a trÃªn Ä‘á»‹a chá»‰ IPv6.
-- Tá»± Ä‘á»™ng gÃ¡n Ä‘á»‹a chá»‰ IPv6 vÃ o card máº¡ng (interface).
-- Quáº£n lÃ½ lifecycle cá»§a proxy: **run, stop, rotate, delete**.
-- Liá»‡t kÃª card máº¡ng vÃ  láº¥y IPv4/IPv6 Ä‘ang cáº¥u hÃ¬nh.
+Thank you for your support.
 
 ---
 
-## ðŸ“¦ YÃªu cáº§u há»‡ thá»‘ng
+# Proxy IPv6 Manager
+
+Một REST API viết bằng **FastAPI** cho phép:
+
+- Tạo và quản lý proxy dựa trên địa chỉ IPv6.
+- Tự động gán địa chỉ IPv6 vào card mạng (interface).
+- Quản lý vòng đời proxy: **run, stop, rotate, delete**.
+- Liệt kê card mạng và lấy IPv4/IPv6 đang cấu hình.
+- Hỗ trợ realtime bằng WebSocket để cập nhật trạng thái.
+
+---
+
+## Yêu cầu hệ thống
 
 - Python 3.9+
-- Windows (cáº§n quyá»n Administrator Ä‘á»ƒ thÃªm/xoÃ¡ IPv6)
-- CÃ¡c thÆ° viá»‡n Python:
+- Windows (cần quyền Administrator để thêm/xóa IPv6)
+- Các thư viện Python (xem `requirements.txt`)
 
-  ```bash
-  pip install fastapi uvicorn pydantic
-  ```
-
----
-
-## âš™ï¸ Cáº¥u trÃºc thÆ° má»¥c
-
-```
-project/
-â”œâ”€â”€ server.py              # FastAPI server (API endpoints)
-â”œâ”€â”€ utils/
-â”‚   â”œâ”€â”€ generate_ipv6.py   # HÃ m táº¡o/xoÃ¡/gÃ¡n IPv6 vÃ o card máº¡ng
-â”‚   â”œâ”€â”€ db.py              # Quáº£n lÃ½ SQLite database
-â”‚   â””â”€â”€ proxy.py           # Logic cháº¡y/stopp proxy TCP
-â””â”€â”€ data/
-    â””â”€â”€ ipv6_address.db    # SQLite database lÆ°u proxy
-```
-
----
-
-## ðŸš€ Cháº¡y server
+Cài đặt:
 
 ```bash
-uvicorn server:app --reload --host 0.0.0.0 --port 9002
+python -m pip install -r requirements.txt
 ```
-
-API sáº½ sáºµn sÃ ng táº¡i: [http://localhost:9002](http://localhost:9002)
 
 ---
 
-## ðŸ”‘ API Endpoints
+## Cấu trúc thư mục
+
+```text
+project/
+|-- server.py              # FastAPI server (API endpoints + websocket)
+|-- client.html            # UI dashboard
+|-- client.js              # UI logic + realtime socket
+|-- utils/
+|   |-- generate_ipv6.py   # Tạo/xóa/gán IPv6 vào card mạng
+|   |-- db.py              # Quản lý SQLite database
+|   |-- proxy.py           # Logic chạy/stop proxy TCP
+|-- data/
+|   |-- ipv6_address.db    # SQLite database lưu proxy
+|-- requirements.txt
+|-- LICENSE
+```
+
+---
+
+## Chạy server
+
+```bash
+python server.py
+```
+
+hoặc
+
+```bash
+uvicorn server:app --host 0.0.0.0 --port 9002
+```
+
+- Web UI: `http://127.0.0.1:9002`
+- API base: `http://127.0.0.1:9002`
+- WebSocket realtime: `ws://127.0.0.1:9002/ws/events`
+
+---
+
+## API Endpoints
 
 ### Proxy Management
 
-- `POST /proxy/create` â†’ Táº¡o má»›i proxy vá»›i IPv6 random.
-- `POST /proxy/run_all` â†’ Cháº¡y toÃ n bá»™ proxy trong DB.
-- `POST /proxy/run_by_ids` â†’ Cháº¡y proxy theo danh sÃ¡ch id trong DB.
-- `POST /proxy/stop_by_ids` â†’ Dá»«ng proxy theo danh sÃ¡ch id.
-- `POST /proxy/stop/{port}` â†’ Dá»«ng proxy theo port.
-- `POST /proxy/rotate/{port}` â†’ Xoay IP (remove IPv6 cÅ©, add IPv6 má»›i, giá»¯ nguyÃªn port).
-- `DELETE /proxy/{id}` â†’ XoÃ¡ proxy (náº¿u khÃ´ng cháº¡y).
-- `GET /proxy` â†’ Liá»‡t kÃª toÃ n bá»™ proxy vá»›i tráº¡ng thÃ¡i running/stopped.
+- `POST /proxy/create` -> Tạo mới proxy với IPv6 random
+- `POST /proxy/run_all` -> Chạy toàn bộ proxy trong DB
+- `POST /proxy/run_by_ids` -> Chạy proxy theo danh sách id
+- `POST /proxy/stop_by_ids` -> Dừng proxy theo danh sách id
+- `POST /proxy/stop/{port}` -> Dừng proxy theo port
+- `POST /proxy/rotate/{port}` -> Xoay IP (remove IPv6 cũ, add IPv6 mới, giữ nguyên port)
+- `DELETE /proxy/{id}` -> Xóa proxy (nếu không đang chạy)
+- `GET /proxy` -> Liệt kê toàn bộ proxy với trạng thái running/stopped
 
-### Network Info
+### Network
 
-- `GET /network/adapters` â†’ Láº¥y danh sÃ¡ch card máº¡ng vÃ  IPv4.
-- `GET /network/adapters/{card_name}/ipv6` â†’ Láº¥y IPv6 cá»§a card máº¡ng chá»‰ Ä‘á»‹nh.
+- `GET /network/adapters` -> Lấy danh sách card mạng và IPv4
+- `GET /network/adapters/{card_name}/ipv6` -> Lấy IPv6 của card mạng chỉ định
+- `DELETE /network/adapters/{card_name}/ipv6/{ipv6_address}` -> Xóa 1 IPv6 cụ thể khỏi card mạng
+
+### Realtime
+
+- `WS /ws/events`
+- Server phát các event `operation` và `proxy_snapshot` để cập nhật UI theo thời gian thực.
 
 ---
 
-## ðŸ“‹ VÃ­ dá»¥ cURL
+## Ví dụ cURL
 
-### Táº¡o proxy má»›i
+### Tạo proxy mới
 
 ```bash
-curl --location 'http://localhost:9002/proxy/create' \
+curl --location 'http://127.0.0.1:9002/proxy/create' \
 --header 'Content-Type: application/json' \
 --data '{
   "group_name": "group1",
@@ -105,90 +126,86 @@ curl --location 'http://localhost:9002/proxy/create' \
 }'
 ```
 
-### Xem danh sÃ¡ch proxy
+### Xem danh sách proxy
 
 ```bash
-curl -X GET "http://localhost:9002/proxy"
+curl -X GET "http://127.0.0.1:9002/proxy"
 ```
 
-### Cháº¡y táº¥t cáº£
+### Chạy tất cả proxy
 
 ```bash
-curl --location --request POST 'http://localhost:9002/proxy/run_all'
+curl --location --request POST 'http://127.0.0.1:9002/proxy/run_all'
 ```
 
-### láº¥y danh sÃ¡ch
+### Chạy theo IDs
 
 ```bash
-curl --location 'http://localhost:9002/proxy'
+curl --location --request POST 'http://127.0.0.1:9002/proxy/run_by_ids' \
+--header 'Content-Type: application/json' \
+--data '[1,2,3]'
 ```
 
-### Dá»«ng báº±ng port
+### Dừng theo IDs
 
 ```bash
-curl --location --request POST 'http://localhost:9002/proxy/stop/10000'
+curl --location --request POST 'http://127.0.0.1:9002/proxy/stop_by_ids' \
+--header 'Content-Type: application/json' \
+--data '[1,2,3]'
 ```
 
-### Xoay ipv6 báº±ng port
+### Dừng theo port
 
 ```bash
-curl --location --request POST 'http://localhost:9002/proxy/rotate/10005'
+curl --location --request POST 'http://127.0.0.1:9002/proxy/stop/10000'
 ```
 
-### XÃ³a proxy
+### Xoay IPv6 theo port
 
 ```bash
-curl --location --request DELETE 'http://localhost:9002/proxy/4'
+curl --location --request POST 'http://127.0.0.1:9002/proxy/rotate/10005'
 ```
 
-### cháº¡y báº±ng ids
+### Xóa proxy
 
 ```bash
-http://localhost:9002/proxy/run_by_ids
+curl --location --request DELETE 'http://127.0.0.1:9002/proxy/4'
 ```
 
-### Dá»«ng báº±ng ids
+### Danh sách card mạng
 
 ```bash
-http://localhost:9002/proxy/stop_by_ids
+curl --location 'http://127.0.0.1:9002/network/adapters'
 ```
 
-### Danh sÃ¡ch card máº¡ng:
+### Danh sách IPv6 theo card
 
 ```bash
-http://localhost:9002/network/adapters
+curl --location 'http://127.0.0.1:9002/network/adapters/Ethernet/ipv6'
 ```
 
-### Danh sÃ¡ch ipv6 cÃ³ trong mÃ¡y
+### Xóa trực tiếp 1 IPv6 trong máy
 
 ```bash
-curl --location 'http://localhost:9002/network/adapters/Ethernet/ipv6'
-```
-
-## XÃ³a trá»±c tiáº¿p ipv6 trong mÃ¡y
-
-```bash
-curl --location --request DELETE 'http://localhost:9002/network/adapters/Ethernet/ipv6/2402:800:6344:86b:57d6:4ead:8312:9703'
+curl --location --request DELETE 'http://127.0.0.1:9002/network/adapters/Ethernet/ipv6/2402:800:6344:86b:57d6:4ead:8312:9703'
 ```
 
 ---
 
-## âš ï¸ LÆ°u Ã½
+## Lưu ý
 
-- Cáº§n cháº¡y báº±ng **Administrator** Ä‘á»ƒ thÃªm hoáº·c xoÃ¡ IPv6 vÃ o interface.
-- Náº¿u mÃ¡y khÃ´ng cÃ³ káº¿t ná»‘i IPv6 public, proxy sáº½ khÃ´ng hoáº¡t Ä‘á»™ng.
-- Database SQLite lÆ°u trong thÆ° má»¥c `data/ipv6_address.db`.
+- Cần chạy bằng **Administrator** để thêm hoặc xóa IPv6 vào interface.
+- Nếu máy không có kết nối IPv6 public, proxy có thể không hoạt động đúng.
+- Database SQLite lưu trong thư mục `data/ipv6_address.db`.
 
-### Build:
+---
+
+## Build (tùy chọn)
 
 ```bash
 python setup.py build_ext
 ```
 
-### Build exe
-
 ```bash
 pyinstaller --onefile --name server2 --icon=solumate_icon.ico --add-data "utils_ext;utils_ext" .\server.py
 ```
-
-python -m pip install -r requirements.txt
