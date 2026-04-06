@@ -1,4 +1,5 @@
 import asyncio
+import ipaddress
 import sqlite3
 import threading
 import uuid
@@ -187,12 +188,28 @@ async def emit_proxy_snapshot():
 class ProxyCreate(BaseModel):
     group_name: str
     interface_name: str = "Ethernet"
+    custom_ipv6: str | None = None
 
 
 # =========================
 # Services
 # =========================
-async def svc_create_proxy(group_name: str, interface_name: str, request_id: str):
+def _normalize_custom_ipv6(custom_ipv6: str | None) -> str | None:
+    if not custom_ipv6:
+        return None
+    value = custom_ipv6.strip()
+    if not value:
+        return None
+    try:
+        ipaddress.IPv6Address(value)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="custom_ipv6 must be a valid IPv6 address")
+    return value
+
+
+async def svc_create_proxy(
+    group_name: str, interface_name: str, request_id: str, custom_ipv6: str | None = None
+):
     await emit_operation(
         "proxy.create",
         "started",
@@ -201,13 +218,16 @@ async def svc_create_proxy(group_name: str, interface_name: str, request_id: str
         {"group_name": group_name, "interface_name": interface_name},
     )
 
-    generated = generate_ipv6_addresses(1)
-    if not generated:
-        msg = "Cannot generate IPv6 address"
-        await emit_operation("proxy.create", "error", msg, request_id)
-        raise HTTPException(status_code=500, detail=msg)
-
-    ipv6 = generated[0]
+    normalized_custom_ipv6 = _normalize_custom_ipv6(custom_ipv6)
+    if normalized_custom_ipv6:
+        ipv6 = normalized_custom_ipv6
+    else:
+        generated = generate_ipv6_addresses(1)
+        if not generated:
+            msg = "Cannot generate IPv6 address"
+            await emit_operation("proxy.create", "error", msg, request_id)
+            raise HTTPException(status_code=500, detail=msg)
+        ipv6 = generated[0]
 
     try:
         await add_ipv6_to_ethernet(ipv6, interface_name)
@@ -215,7 +235,14 @@ async def svc_create_proxy(group_name: str, interface_name: str, request_id: str
 
         t = threading.Thread(
             target=create_proxy,
-            args=({"port": port, "ip": ipv6},),
+            args=(
+                {
+                    "port": port,
+                    "ip": ipv6,
+                    "interface_name": interface_name,
+                    "auto_rotate_ipv6": True,
+                },
+            ),
             daemon=True,
         )
         t.start()
@@ -250,12 +277,19 @@ async def svc_run_all(request_id: str):
     started = []
     running_ports = set(list_running_proxies())
 
-    for _, ipv6, _, port, _ in proxies:
+    for _, ipv6, _, port, interface_name in proxies:
         port = int(port)
         if port not in running_ports:
             t = threading.Thread(
                 target=create_proxy,
-                args=({"port": port, "ip": ipv6},),
+                args=(
+                    {
+                        "port": port,
+                        "ip": ipv6,
+                        "interface_name": interface_name,
+                        "auto_rotate_ipv6": True,
+                    },
+                ),
                 daemon=True,
             )
             t.start()
@@ -308,7 +342,7 @@ async def svc_run_by_ids(ids: List[int], request_id: str):
 
     running_ports = set(list_running_proxies())
 
-    for item_id, ipv6, _, port, _ in rows:
+    for item_id, ipv6, _, port, interface_name in rows:
         port = int(port)
         if port in running_ports:
             results.append({"id": item_id, "port": port, "status": "already_running"})
@@ -316,7 +350,14 @@ async def svc_run_by_ids(ids: List[int], request_id: str):
             try:
                 t = threading.Thread(
                     target=create_proxy,
-                    args=({"port": port, "ip": ipv6},),
+                    args=(
+                        {
+                            "port": port,
+                            "ip": ipv6,
+                            "interface_name": interface_name,
+                            "auto_rotate_ipv6": True,
+                        },
+                    ),
                     daemon=True,
                 )
                 t.start()
@@ -473,7 +514,14 @@ async def svc_rotate_port(port: int, request_id: str):
 
         t = threading.Thread(
             target=create_proxy,
-            args=({"port": port, "ip": new_ipv6},),
+            args=(
+                {
+                    "port": port,
+                    "ip": new_ipv6,
+                    "interface_name": interface,
+                    "auto_rotate_ipv6": True,
+                },
+            ),
             daemon=True,
         )
         t.start()
@@ -539,7 +587,9 @@ async def svc_remove_ipv6(card_name: str, ipv6_address: str, request_id: str):
 # =========================
 @app.post("/proxy/create")
 async def create_proxy_v6(data: ProxyCreate):
-    return await svc_create_proxy(data.group_name, data.interface_name, new_request_id())
+    return await svc_create_proxy(
+        data.group_name, data.interface_name, new_request_id(), data.custom_ipv6
+    )
 
 
 @app.post("/proxy/run_all")
@@ -607,9 +657,10 @@ async def execute_ws_command(action: str, payload: Dict[str, Any], request_id: s
     if action == "proxy.create":
         group_name = (payload.get("group_name") or "").strip()
         interface_name = (payload.get("interface_name") or "Ethernet").strip() or "Ethernet"
+        custom_ipv6 = payload.get("custom_ipv6")
         if not group_name:
             raise HTTPException(status_code=400, detail="group_name is required")
-        return await svc_create_proxy(group_name, interface_name, request_id)
+        return await svc_create_proxy(group_name, interface_name, request_id, custom_ipv6)
 
     if action == "proxy.run_all":
         return await svc_run_all(request_id)
