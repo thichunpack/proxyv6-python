@@ -40,6 +40,8 @@ const refs = {
   createBtn: $("createForm").querySelector('button[type="submit"]'),
   groupName: $("groupName"),
   ifaceSelect: $("ifaceSelect"),
+  customIpv6: $("customIpv6"),
+  notifyMode: $("notifyMode"),
   refreshProxies: $("refreshProxies"),
   runAll: $("runAll"),
   runSel: $("runSel"),
@@ -74,6 +76,10 @@ const I18N = {
     "label.apiBase": "API Base URL",
     "label.groupName": "Ten nhom",
     "label.interface": "Card mang",
+    "label.customIpv6": "IPv6 tuy chon (khong bat buoc)",
+    "label.notifyMode": "Che do thong bao",
+    "notify.quiet": "An",
+    "notify.normal": "Day du",
     "section.adapters": "Card mang",
     "section.create": "Tao Proxy",
     "section.fleet": "Danh Sach Proxy",
@@ -146,6 +152,8 @@ const I18N = {
     "msg.removeIpv6Fail": "Xoa IPv6 loi: {error}",
     "msg.groupRequired": "Vui long nhap group name",
     "msg.interfaceRequired": "Vui long chon card mang",
+    "msg.invalidIpv6": "IPv6 khong hop le",
+    "msg.prefillIpv6FromAdapter": "Da dien IPv6 tu card {name}",
     "msg.createProxyFail": "Tao proxy loi: {error}",
     "msg.loadProxyFail": "Tai danh sach proxy loi: {error}",
     "msg.runAllStarted": "Run all da chay {count} port",
@@ -208,6 +216,10 @@ const I18N = {
     "label.apiBase": "API Base URL",
     "label.groupName": "Group name",
     "label.interface": "Interface",
+    "label.customIpv6": "Custom IPv6 (optional)",
+    "label.notifyMode": "Notification mode",
+    "notify.quiet": "Quiet",
+    "notify.normal": "Normal",
     "section.adapters": "Network Adapters",
     "section.create": "Create Proxy",
     "section.fleet": "Proxy Fleet",
@@ -280,6 +292,8 @@ const I18N = {
     "msg.removeIpv6Fail": "Remove IPv6 failed: {error}",
     "msg.groupRequired": "Group name is required",
     "msg.interfaceRequired": "Interface is required",
+    "msg.invalidIpv6": "Invalid IPv6 format",
+    "msg.prefillIpv6FromAdapter": "Prefilled IPv6 from adapter {name}",
     "msg.createProxyFail": "Create proxy failed: {error}",
     "msg.loadProxyFail": "Load proxies failed: {error}",
     "msg.runAllStarted": "Run all started {count} ports",
@@ -397,6 +411,7 @@ function setLanguage(lang) {
 function initCfg() {
   refs.baseUrl.value = localStorage.getItem("proxy_api_base_url") || "http://127.0.0.1:9002";
   refs.groupName.value = localStorage.getItem("proxy_group_name") || "group-main";
+  refs.notifyMode.value = localStorage.getItem("proxy_notify_mode") || "quiet";
   const storedLang = (localStorage.getItem("proxy_ui_lang") || "vi").toLowerCase();
   state.lang = storedLang === "en" ? "en" : "vi";
   if (refs.langSelect) {
@@ -408,6 +423,7 @@ function initCfg() {
 function saveCfg() {
   localStorage.setItem("proxy_api_base_url", refs.baseUrl.value.trim());
   localStorage.setItem("proxy_group_name", refs.groupName.value.trim());
+  localStorage.setItem("proxy_notify_mode", refs.notifyMode.value || "quiet");
   localStorage.setItem("proxy_ui_lang", state.lang);
   toast(t("msg.configSaved"), "ok");
   connectSocket(true);
@@ -470,6 +486,9 @@ function log(msg, level = "ok") {
 }
 
 function toast(msg, type = "ok") {
+  if (refs.notifyMode?.value === "quiet" && type !== "err") {
+    return;
+  }
   const n = document.createElement("div");
   n.className = `toast ${type}`;
   n.textContent = msg;
@@ -488,6 +507,13 @@ const esc = (v) =>
 function toInt(value) {
   const n = Number(value);
   return Number.isInteger(n) ? n : null;
+}
+
+function isValidIpv6(value) {
+  if (!value) {
+    return false;
+  }
+  return /^[0-9a-fA-F:]+$/.test(value) && value.includes(":");
 }
 
 function addToSet(setObj, value, active) {
@@ -523,6 +549,25 @@ function clearBusyState() {
   state.busy.removeIpv6Values.clear();
   state.busy.opTokens.clear();
   applyBusyUI();
+}
+
+function syncCreateFormFromAdapter(autoFillIpv6 = false) {
+  if (!state.selectedAdapter) {
+    return;
+  }
+  refs.ifaceSelect.value = state.selectedAdapter;
+  if (!autoFillIpv6 || !refs.customIpv6) {
+    return;
+  }
+  if (refs.customIpv6.value.trim()) {
+    return;
+  }
+  const firstIpv6 = (state.ipv6Items || []).find((x) => x?.value)?.value;
+  if (!firstIpv6) {
+    return;
+  }
+  refs.customIpv6.value = firstIpv6;
+  log(t("msg.prefillIpv6FromAdapter", { name: state.selectedAdapter }), "ok");
 }
 
 function setButtonLoading(button, loading, loadingText) {
@@ -697,6 +742,7 @@ function renderAdapters() {
       return `<option value="${esc(a.card_name)}" ${sel}>${esc(a.card_name)}</option>`;
     })
     .join("");
+  syncCreateFormFromAdapter(false);
 }
 
 function renderIpv6() {
@@ -721,7 +767,7 @@ function renderIpv6() {
           }" data-ipv6="${esc(x.value)}" ${
             state.busy.removeIpv6Values.has(x.value) ? "disabled" : ""
           }>${state.busy.removeIpv6Values.has(x.value) ? t("loading.removing") : t("btn.remove")}</button></div>
-          <div class="mono">${esc(x.value)}</div>
+          <div class="mono" data-fill-ipv6="${esc(x.value)}">${esc(x.value)}</div>
         </div>
       `,
     )
@@ -1055,6 +1101,7 @@ async function loadIpv6() {
     });
     state.ipv6Items = Array.isArray(d.ipv6) ? d.ipv6 : [];
     renderIpv6();
+    syncCreateFormFromAdapter(true);
     log(t("msg.loadIpv6Ok", { name: state.selectedAdapter }), "ok");
   } catch (e) {
     if (String(e.message).startsWith("404")) {
@@ -1091,6 +1138,7 @@ async function createProxy(ev) {
   ev.preventDefault();
   const group = refs.groupName.value.trim();
   const iface = refs.ifaceSelect.value.trim();
+  const customIpv6 = refs.customIpv6.value.trim();
   if (!group) {
     toast(t("msg.groupRequired"), "warn");
     return;
@@ -1099,12 +1147,20 @@ async function createProxy(ev) {
     toast(t("msg.interfaceRequired"), "warn");
     return;
   }
+  if (customIpv6 && !isValidIpv6(customIpv6)) {
+    toast(t("msg.invalidIpv6"), "warn");
+    return;
+  }
 
   try {
-    await socketCommand("proxy.create", {
+    const payload = {
       group_name: group,
       interface_name: iface,
-    });
+    };
+    if (customIpv6) {
+      payload.custom_ipv6 = customIpv6;
+    }
+    await socketCommand("proxy.create", payload);
   } catch (e) {
     toast(t("msg.createProxyFail", { error: e.message }), "err");
     log(t("msg.createProxyFail", { error: e.message }), "err");
@@ -1243,6 +1299,17 @@ function bindEvents() {
 
   refs.refreshAdapters.addEventListener("click", refreshAdapters);
   refs.loadIpv6.addEventListener("click", loadIpv6);
+  refs.ifaceSelect.addEventListener("change", async () => {
+    state.selectedAdapter = refs.ifaceSelect.value.trim();
+    renderAdapters();
+    renderIpv6();
+    if (state.selectedAdapter) {
+      await loadIpv6();
+    }
+  });
+  refs.notifyMode.addEventListener("change", () => {
+    localStorage.setItem("proxy_notify_mode", refs.notifyMode.value || "quiet");
+  });
   refs.clearIpv6.addEventListener("click", () => {
     state.ipv6Items = [];
     renderIpv6();
@@ -1304,6 +1371,11 @@ function bindEvents() {
   });
 
   refs.ipv6Box.addEventListener("click", (ev) => {
+    const fill = ev.target.closest("[data-fill-ipv6]");
+    if (fill && refs.customIpv6) {
+      refs.customIpv6.value = fill.getAttribute("data-fill-ipv6") || "";
+      return;
+    }
     const btn = ev.target.closest(".rm-ip");
     if (!btn) {
       return;
@@ -1373,4 +1445,3 @@ async function boot() {
 }
 
 boot();
-

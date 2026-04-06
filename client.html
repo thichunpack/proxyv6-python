@@ -434,6 +434,8 @@
           <form class="form" id="createForm">
             <label class="field"><span data-i18n="label.groupName">Group name</span><input id="groupName" type="text" placeholder="group-main" required /></label>
             <label class="field"><span data-i18n="label.interface">Interface</span><select id="ifaceSelect"></select></label>
+            <label class="field"><span data-i18n="label.customIpv6">Custom IPv6 (optional)</span><input id="customIpv6" type="text" placeholder="Auto from adapter IPv6" /></label>
+            <label class="field"><span data-i18n="label.notifyMode">Notification mode</span><select id="notifyMode"><option value="quiet" selected data-i18n="notify.quiet">Quiet</option><option value="normal" data-i18n="notify.normal">Normal</option></select></label>
             <button class="p" type="submit" data-i18n="btn.create">Create proxy</button>
           </form>
           <div class="note" data-i18n="note.interfaceSync">Interface list syncs from adapters.</div>
