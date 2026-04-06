@@ -4,6 +4,12 @@ import subprocess
 import threading
 import traceback
 
+from utils.generate_ipv6 import (
+    add_ipv6_to_ethernet_sync,
+    generate_ipv6_from_base,
+    remove_ipv6_address_sync,
+)
+
 # running proxy cache: port -> {"thread": t, "stop": bool, "server_socket": sock}
 _running_proxies = {}
 lock = threading.Lock()
@@ -12,7 +18,10 @@ lock = threading.Lock()
 def create_proxy(data):
     """Start a simple proxy on port=data['port'] and bind outgoing source to data['ip']."""
     listen_port = data["port"]
-    source_address = (data["ip"], 0)
+    source_ipv6 = data["ip"]
+    source_address = (source_ipv6, 0)
+    interface_name = data.get("interface_name", "Ethernet")
+    auto_rotate_ipv6 = bool(data.get("auto_rotate_ipv6", False))
 
     max_conn = 10000
     buffer_size = 8192
@@ -43,6 +52,13 @@ def create_proxy(data):
                 if not data:
                     conn.close()
                     continue
+
+                if auto_rotate_ipv6:
+                    rotated = rotate_source_ipv6(source_ipv6, interface_name)
+                    if rotated:
+                        source_ipv6 = rotated
+                        source_address = (source_ipv6, 0)
+
                 threading.Thread(
                     target=handle_client,
                     args=(conn, data, source_address, buffer_size),
@@ -100,6 +116,23 @@ def forward(source, destination, buffer_size):
     finally:
         source.close()
         destination.close()
+
+
+def rotate_source_ipv6(current_ipv6: str, interface_name: str) -> str | None:
+    generated = generate_ipv6_from_base(current_ipv6, 1)
+    if not generated:
+        return None
+
+    new_ipv6 = generated[0]
+    if new_ipv6 == current_ipv6:
+        return current_ipv6
+
+    try:
+        add_ipv6_to_ethernet_sync(new_ipv6, interface_name)
+        remove_ipv6_address_sync(current_ipv6, interface_name)
+        return new_ipv6
+    except Exception:
+        return None
 
 
 def get_ipv6_addresses():

@@ -79,6 +79,10 @@ async def ensure_admin_permission():
 
 def generate_ipv6_addresses(count=1):
     base_ipv6 = get_ethernet_ipv6_addresses()
+    return generate_ipv6_from_base(base_ipv6, count)
+
+
+def generate_ipv6_from_base(base_ipv6: str, count: int = 1):
     if not base_ipv6:
         return []
 
@@ -115,7 +119,7 @@ def get_ethernet_ipv6_addresses() -> str:
     return None
 
 
-async def add_ipv6_to_ethernet(ipv6_address, interface_name="Ethernet"):
+def add_ipv6_to_ethernet_sync(ipv6_address, interface_name="Ethernet"):
     interface = _ps_escape(interface_name)
     ipv6 = _ps_escape(ipv6_address)
 
@@ -125,14 +129,18 @@ async def add_ipv6_to_ethernet(ipv6_address, interface_name="Ethernet"):
     )
 
     try:
-        await asyncio.to_thread(_run_with_optional_uac, command)
+        _run_with_optional_uac(command)
     except PermissionError:
         raise RuntimeError("UAC was canceled. Please allow Administrator permission.")
     except RuntimeError as exc:
         raise RuntimeError(f"Add IPv6 failed: {exc}")
 
 
-async def remove_ipv6_address(ipv6_address, interface_name="Ethernet"):
+async def add_ipv6_to_ethernet(ipv6_address, interface_name="Ethernet"):
+    await asyncio.to_thread(add_ipv6_to_ethernet_sync, ipv6_address, interface_name)
+
+
+def remove_ipv6_address_sync(ipv6_address, interface_name="Ethernet"):
     interface = _ps_escape(interface_name)
     ipv6 = _ps_escape(ipv6_address)
 
@@ -142,7 +150,7 @@ async def remove_ipv6_address(ipv6_address, interface_name="Ethernet"):
     )
 
     try:
-        await asyncio.to_thread(_run_with_optional_uac, command)
+        _run_with_optional_uac(command)
     except PermissionError:
         raise RuntimeError("UAC was canceled. Please allow Administrator permission.")
     except RuntimeError as exc:
@@ -150,6 +158,10 @@ async def remove_ipv6_address(ipv6_address, interface_name="Ethernet"):
         if "no matching msft_netipaddress" in lowered:
             return
         raise RuntimeError(f"Remove IPv6 failed: {exc}")
+
+
+async def remove_ipv6_address(ipv6_address, interface_name="Ethernet"):
+    await asyncio.to_thread(remove_ipv6_address_sync, ipv6_address, interface_name)
 
 
 def get_adapters_ipv4():

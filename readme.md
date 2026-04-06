@@ -31,6 +31,7 @@ Một REST API viết bằng **FastAPI** cho phép:
 - Tạo và quản lý proxy dựa trên địa chỉ IPv6.
 - Tự động gán địa chỉ IPv6 vào card mạng (interface).
 - Quản lý vòng đời proxy: **run, stop, rotate, delete**.
+- Tự động xoay IPv6 theo từng kết nối mới để tăng độ ẩn danh.
 - Liệt kê card mạng và lấy IPv4/IPv6 đang cấu hình.
 - Hỗ trợ realtime bằng WebSocket để cập nhật trạng thái.
 

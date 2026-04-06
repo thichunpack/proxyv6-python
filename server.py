@@ -215,7 +215,14 @@ async def svc_create_proxy(group_name: str, interface_name: str, request_id: str
 
         t = threading.Thread(
             target=create_proxy,
-            args=({"port": port, "ip": ipv6},),
+            args=(
+                {
+                    "port": port,
+                    "ip": ipv6,
+                    "interface_name": interface_name,
+                    "auto_rotate_ipv6": True,
+                },
+            ),
             daemon=True,
         )
         t.start()
@@ -250,12 +257,19 @@ async def svc_run_all(request_id: str):
     started = []
     running_ports = set(list_running_proxies())
 
-    for _, ipv6, _, port, _ in proxies:
+    for _, ipv6, _, port, interface_name in proxies:
         port = int(port)
         if port not in running_ports:
             t = threading.Thread(
                 target=create_proxy,
-                args=({"port": port, "ip": ipv6},),
+                args=(
+                    {
+                        "port": port,
+                        "ip": ipv6,
+                        "interface_name": interface_name,
+                        "auto_rotate_ipv6": True,
+                    },
+                ),
                 daemon=True,
             )
             t.start()
@@ -308,7 +322,7 @@ async def svc_run_by_ids(ids: List[int], request_id: str):
 
     running_ports = set(list_running_proxies())
 
-    for item_id, ipv6, _, port, _ in rows:
+    for item_id, ipv6, _, port, interface_name in rows:
         port = int(port)
         if port in running_ports:
             results.append({"id": item_id, "port": port, "status": "already_running"})
@@ -316,7 +330,14 @@ async def svc_run_by_ids(ids: List[int], request_id: str):
             try:
                 t = threading.Thread(
                     target=create_proxy,
-                    args=({"port": port, "ip": ipv6},),
+                    args=(
+                        {
+                            "port": port,
+                            "ip": ipv6,
+                            "interface_name": interface_name,
+                            "auto_rotate_ipv6": True,
+                        },
+                    ),
                     daemon=True,
                 )
                 t.start()
@@ -473,7 +494,14 @@ async def svc_rotate_port(port: int, request_id: str):
 
         t = threading.Thread(
             target=create_proxy,
-            args=({"port": port, "ip": new_ipv6},),
+            args=(
+                {
+                    "port": port,
+                    "ip": new_ipv6,
+                    "interface_name": interface,
+                    "auto_rotate_ipv6": True,
+                },
+            ),
             daemon=True,
         )
         t.start()
